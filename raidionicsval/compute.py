@@ -33,6 +33,7 @@ def compute(config_filename: str, logging_filename: str = None) -> None:
         elif task == 'study':
             runner = StudyConnector()
             runner.run()
+
     except Exception as e:
         print('Compute could not proceed. Issue arose during task {}. Collected: \n'.format(task))
         print('{}'.format(traceback.format_exc()))

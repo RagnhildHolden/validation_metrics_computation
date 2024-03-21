@@ -60,6 +60,7 @@ class SharedResources:
         self.validation_class_names = []
         self.validation_true_positive_volume_thresholds = []
         self.validation_use_brats_data = []
+        self.validation_external_testset = False
 
     def set_environment(self, config_filename):
         self.config = configparser.ConfigParser()
@@ -208,3 +209,7 @@ class SharedResources:
         if self.config.has_option('Validation', 'use_brats_data'):
             if self.config['Validation']['use_brats_data'].split('#')[0].strip() != '':
                 self.validation_use_brats_data = True if self.config['Validation']['use_brats_data'].split('#')[0].strip().lower() == 'true' else False
+
+        if self.config.has_option('Validation', 'external_testset'):
+            if self.config['Validation']['external_testset'].split('#')[0].strip() != '':
+                self.validation_external_testset = True if self.config['Validation']['external_testset'].split('#')[0].strip().lower() == 'true' else False

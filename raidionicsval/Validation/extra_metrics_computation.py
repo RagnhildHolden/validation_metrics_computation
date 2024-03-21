@@ -279,9 +279,14 @@ def compute_specific_metric_value(metric, gt, detection, tp, tn, fp, fn, gt_ni_h
 
         if probability_joint != 0:
             metric_value = probability_difference / (2. * probability_joint)
+    elif metric == 'AVE':
+        gt_vol = np.count_nonzero(gt) * np.prod(gt_ni_header.get_zooms()) * 1e-3
+        det_vol = np.count_nonzero(detection) * np.prod(det_ni_header.get_zooms()) * 1e-3
+        metric_value = np.abs(gt_vol - det_vol)
     else:
         logging.warning("Metric with name {} has not been implemented!".format(metric))
     return metric_value
+
 
 
 def compute_overall_metrics_correlation(input_folder, output_folder, data=None, class_name=None,
@@ -299,7 +304,7 @@ def compute_overall_metrics_correlation(input_folder, output_folder, data=None, 
     """
     results = None
     if data is None:
-        results_filename = os.path.join(input_folder, 'Validation', class_name + '_dice_scores.csv')
+        results_filename = os.path.join(input_folder, class_name + '_dice_scores.csv')
         results = pd.read_csv(results_filename)
     else:
         results = deepcopy(data)

@@ -4,14 +4,15 @@ import itertools
 import time
 import pandas as pd
 from math import ceil
-
+import os
+from pathlib import Path
 from tqdm import tqdm
 
 from ..Computation.dice_computation import separate_dice_computation
 from ..Validation.instance_segmentation_validation import *
 from ..Utils.resources import SharedResources
 from ..Utils.PatientMetricsStructure import PatientMetrics
-from ..Utils.io_converters import get_fold_from_file
+from ..Utils.io_converters import get_fold_from_file, reload_optimal_validation_parameters
 from ..Validation.validation_utilities import best_segmentation_probability_threshold_analysis, compute_fold_average
 from ..Validation.extra_metrics_computation import compute_patient_extra_metrics
 
@@ -25,15 +26,29 @@ class ModelValidation:
         self.data_root = SharedResources.getInstance().data_root
         self.input_folder = SharedResources.getInstance().validation_input_folder
         base_output_folder = SharedResources.getInstance().validation_output_folder
+        self.external_validation = SharedResources.getInstance().validation_external_testset
+        # self.cross_validation_description_file = None
+
+        if self.external_validation:
+            print(f"Running validation with external testset for experiment {Path(self.input_folder).name}")
+            self.prediction_folder = os.path.join(self.input_folder, 'external_test_predictions')
+            val_foldername = 'ExternalValidation'
+            self.cross_validation_description_file = os.path.join(self.input_folder, 'external_testset.txt')
+            self.split_way = 'two-way'
+        else:
+            print(f"Running model validation for experiment {Path(self.input_folder).name}")
+            self.prediction_folder = os.path.join(self.input_folder, 'predictions')
+            self.cross_validation_description_file = os.path.join(self.input_folder, 'cross_validation_folds.txt')
+            val_foldername = 'Validation'
+            self.split_way = SharedResources.getInstance().validation_split_way
 
         if base_output_folder is not None and base_output_folder != "":
-            self.output_folder = os.path.join(base_output_folder, 'Validation')
+            self.output_folder = os.path.join(base_output_folder, val_foldername)
         else:
-            self.output_folder = os.path.join(self.input_folder, 'Validation')
+            self.output_folder = os.path.join(self.input_folder, val_foldername)
         os.makedirs(self.output_folder, exist_ok=True)
 
         self.fold_number = SharedResources.getInstance().validation_nb_folds
-        self.split_way = SharedResources.getInstance().validation_split_way
         self.metric_names = []
         self.metric_names.extend(SharedResources.getInstance().validation_metric_names)
         self.detection_overlap_thresholds = SharedResources.getInstance().validation_detection_overlap_thresholds
@@ -44,13 +59,13 @@ class ModelValidation:
 
     def run(self):
         self.__compute_metrics()
-        class_optimal = best_segmentation_probability_threshold_analysis(self.input_folder,
+        class_optimal = best_segmentation_probability_threshold_analysis(self.output_folder,
                                                                          detection_overlap_thresholds=self.detection_overlap_thresholds)
         if len(SharedResources.getInstance().validation_metric_names) != 0:
             self.__compute_extra_metrics(class_optimal=class_optimal)
-        compute_fold_average(self.input_folder, class_optimal=class_optimal, metrics=self.metric_names,
+        compute_fold_average(self.output_folder, class_optimal=class_optimal, metrics=self.metric_names,
                              true_positive_state=False)
-        compute_fold_average(self.input_folder, class_optimal=class_optimal, metrics=self.metric_names,
+        compute_fold_average(self.output_folder, class_optimal=class_optimal, metrics=self.metric_names,
                              true_positive_state=True)
 
     def __compute_metrics(self):
@@ -61,7 +76,6 @@ class ModelValidation:
         @TODO. Include an override flag to recompute anyway.
         :return:
         """
-        cross_validation_description_file = os.path.join(self.input_folder, 'cross_validation_folds.txt')
         self.results_df = []
         self.class_results_df = {}
         self.dice_output_filename = os.path.join(self.output_folder, 'all_dice_scores.csv')
@@ -107,9 +121,9 @@ class ModelValidation:
         for fold in range(0, self.fold_number):
             print('\nProcessing fold {}/{}.\n'.format(fold + 1, self.fold_number))
             if self.split_way == 'two-way':
-                test_set, _ = get_fold_from_file(filename=cross_validation_description_file, fold_number=fold)
+                test_set, _ = get_fold_from_file(filename=self.cross_validation_description_file, fold_number=fold)
             else:
-                val_set, test_set = get_fold_from_file(filename=cross_validation_description_file, fold_number=fold)
+                val_set, test_set = get_fold_from_file(filename=self.cross_validation_description_file, fold_number=fold)
             results = self.__compute_metrics_for_fold(data_list=test_set, fold_number=fold)
             results_per_folds.append(results)
 
@@ -167,9 +181,9 @@ class ModelValidation:
 
             # Annoying, but independent of extension
             # @TODO. must load images with SimpleITK to be completely generic.
-            detection_image_base = os.path.join(self.input_folder, 'predictions', str(fold_number), uid)
+            detection_image_base = os.path.join(self.prediction_folder, str(fold_number), uid)
             if folder_index is not None:
-               detection_image_base = os.path.join(self.input_folder, 'predictions', str(fold_number),
+               detection_image_base = os.path.join(self.prediction_folder, str(fold_number),
                                                    folder_index + '_' + uid)
 
             detection_filename = None
@@ -372,3 +386,19 @@ class ModelValidation:
                     metric_value = pm[1]
                     self.class_results_df[c].at[self.class_results_df[c].loc[(self.class_results_df[c]['Patient'] == self.patients_metrics[p].patient_id) & (self.class_results_df[c]['Threshold'] == optimal_values[1])].index.values[0], metric_name] = metric_value
                 self.class_results_df[c].to_csv(self.class_dice_output_filenames[c], index=False)
+
+    def __retrieve_optimum_values(self, class_name: str):
+        study_filename = os.path.join(self.input_folder, 'Validation', class_name + '_optimal_dice_study.csv')
+        if not os.path.exists(study_filename):
+            raise ValueError('The validation task must be run prior to this. Missing optimal_dice_study file.')
+
+        optimal_overlap, optimal_threshold = reload_optimal_validation_parameters(study_filename=study_filename)
+        self.classes_optimal[class_name] = {}
+        self.classes_optimal[class_name]['All'] = [optimal_overlap, optimal_threshold]
+
+        study_filename = os.path.join(self.input_folder, 'Validation', class_name + '_optimal_dice_study_tp.csv')
+        if not os.path.exists(study_filename):
+            raise ValueError('The validation task must be run prior to this. Missing optimal_dice_study_tp file.')
+
+        optimal_overlap, optimal_threshold = reload_optimal_validation_parameters(study_filename=study_filename)
+        self.classes_optimal[class_name]['True Positive'] = [optimal_overlap, optimal_threshold]

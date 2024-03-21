@@ -1,5 +1,9 @@
 from ..Utils.resources import SharedResources
 from ..Studies.SegmentationStudy import SegmentationStudy
+from ..Studies.PostopSegmentationStudy import PostopSegmentationStudy
+from ..Studies.PostopInterraterStudy import PostopInterraterStudy
+from ..Studies.ComparePostopStudies import ComparePostopStudy
+from ..Studies.PostopAlexStudy import PostopAlexStudy
 
 
 class StudyConnector:
@@ -12,4 +16,20 @@ class StudyConnector:
     def run(self):
         if self.perform_study == 'segmentation':
             processor = SegmentationStudy()
+            processor.run()
+
+        if self.perform_study == 'postop_segmentation':
+            processor = PostopSegmentationStudy()
+            processor.run()
+
+        if self.perform_study == 'postop_interrater':
+            processor = PostopInterraterStudy()
+            processor.run()
+
+        if self.perform_study == 'compare_postop':
+            processor = ComparePostopStudy()
+            processor.run()
+
+        if self.perform_study == 'postop_alex_study':
+            processor = PostopAlexStudy()
             processor.run()

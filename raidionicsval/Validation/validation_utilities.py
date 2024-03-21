@@ -38,8 +38,8 @@ def best_segmentation_probability_threshold_analysis_inner(folder, detection_ove
     :return: optimal probability threshold and Dice cut-off.
     """
     suffix = "_tp" if true_positive_state else ""
-    patient_dices_filename = os.path.join(folder, 'Validation', class_name + '_dice_scores.csv')
-    study_filename = os.path.join(folder, 'Validation', class_name + '_optimal_dice_study' + suffix + '.csv')
+    patient_dices_filename = os.path.join(folder, class_name + '_dice_scores.csv')
+    study_filename = os.path.join(folder, class_name + '_optimal_dice_study' + suffix + '.csv')
     study_file = open(study_filename, 'w')
     study_writer = csv.writer(study_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     study_writer.writerow(
@@ -134,14 +134,14 @@ def best_segmentation_probability_threshold_analysis_inner(folder, detection_ove
     ax4.legend(loc='lower center')
     # plt.show()
 
-    os.makedirs(os.path.join(folder, 'Validation', 'OptimalSearch'), exist_ok=True)
-    fig.savefig(os.path.join(folder, 'Validation', 'OptimalSearch', 'dice_over_threshold.png'), dpi=300,
+    os.makedirs(os.path.join(folder, 'OptimalSearch'), exist_ok=True)
+    fig.savefig(os.path.join(folder, 'OptimalSearch', 'dice_over_threshold.png'), dpi=300,
                 bbox_inches="tight")
-    fig2.savefig(os.path.join(folder, 'Validation', 'OptimalSearch', 'F1_over_threshold.png'), dpi=300,
+    fig2.savefig(os.path.join(folder, 'OptimalSearch', 'F1_over_threshold.png'), dpi=300,
                  bbox_inches="tight")
-    fig3.savefig(os.path.join(folder, 'Validation', 'OptimalSearch', 'F1_over_dice.png'), dpi=300,
+    fig3.savefig(os.path.join(folder, 'OptimalSearch', 'F1_over_dice.png'), dpi=300,
                  bbox_inches="tight")
-    fig4.savefig(os.path.join(folder, 'Validation', 'OptimalSearch', 'metrics_scatter_over_threshold.png'), dpi=300,
+    fig4.savefig(os.path.join(folder, 'OptimalSearch', 'metrics_scatter_over_threshold.png'), dpi=300,
                  bbox_inches="tight")
 
     plt.close(fig)
@@ -172,7 +172,7 @@ def compute_fold_average_inner(folder, class_name, data=None, best_threshold=0.5
     """
     results = None
     if data is None:
-        results_filename = os.path.join(folder, 'Validation', class_name + '_dice_scores.csv')
+        results_filename = os.path.join(folder, class_name + '_dice_scores.csv')
         results = pd.read_csv(results_filename)
         if true_positive_state:
             results = results.loc[results["True Positive"] == True]
@@ -210,8 +210,7 @@ def compute_fold_average_inner(folder, class_name, data=None, best_threshold=0.5
         metrics_per_fold.append(fold_average)
 
     metrics_per_fold_df = pd.DataFrame(data=metrics_per_fold, columns=fold_average_columns)
-    study_filename = os.path.join(folder, 'Validation', class_name + '_folds_metrics_average.csv') if suffix == '' else os.path.join(folder,
-                                                                                                 'Validation',
+    study_filename = os.path.join(folder, class_name + '_folds_metrics_average.csv') if suffix == '' else os.path.join(folder,
                                                                                                  class_name + '_folds_metrics_average_' + suffix + '.csv')
     metrics_per_fold_df.to_csv(study_filename, index=False)
 
@@ -258,8 +257,7 @@ def compute_fold_average_inner(folder, class_name, data=None, best_threshold=0.5
     for m in metric_names:
         overall_average_columns.extend([m + ' (Mean)', m + ' (Std)'])
     pooled_fold_averaged_results_df = pd.DataFrame(data=np.asarray(pooled_fold_averaged_results).reshape(1, len(overall_average_columns)), columns=overall_average_columns)
-    study_filename = os.path.join(folder, 'Validation', class_name + '_overall_metrics_average.csv') if suffix == '' else os.path.join(folder,
-                                                                                                 'Validation',
+    study_filename = os.path.join(folder, class_name + '_overall_metrics_average.csv') if suffix == '' else os.path.join(folder,
                                                                                                  class_name + '_overall_metrics_average_' + suffix + '.csv')
     pooled_fold_averaged_results_df.to_csv(study_filename, index=False)
 
